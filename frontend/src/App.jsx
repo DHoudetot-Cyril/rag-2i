@@ -24,7 +24,9 @@ function App() {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/documents');
+        // Dynamically determine API URL based on where the frontend is loaded from
+        const apiBaseUrl = `http://${window.location.hostname}:8000`;
+        const response = await axios.get(`${apiBaseUrl}/documents`);
         setDocuments(response.data);
       } catch (error) {
         console.error("Error fetching documents:", error);
@@ -43,7 +45,8 @@ function App() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:8000/query', {
+      const apiBaseUrl = `http://${window.location.hostname}:8000`;
+      const response = await axios.post(`${apiBaseUrl}/query`, {
         question: userMessage.content,
         min_score: 0.01
       });
