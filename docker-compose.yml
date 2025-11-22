@@ -1,0 +1,68 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: always
+    ports:
+      - "6333:6333"
+    volumes:
+      - ./qdrant_data:/qdrant/storage
+
+  llama:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    container_name: llama
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./models:/models
+    command:
+      - --model
+      - /models/FastLlama-3.2-1B-Instruct-Q4_K_M.gguf
+      - --threads
+      - "16"
+      - --ctx-size
+      - "4096"
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    restart: unless-stopped
+
+  rag_api:
+    build:
+      context: ./RAG
+    container_name: rag_api
+    restart: always
+    depends_on:
+      - qdrant
+      - llama
+    ports:
+      - "8000:8000"
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - LLAMA_SERVER=http://llama:8080/completion
+      - LLM_MODEL_NAME=FastLlama-3.2-1B-Instruct
+  
+  bot_teams:
+    build:
+      context: ./Bot_Teams
+    container_name: Bot_Teams
+    restart: unless-stopped
+    depends_on:
+      - rag_api
+    ports:
+      - "3978:3978"
+    env_file:
+      - ./Bot_Teams/config.env
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    depends_on:
+      - rag_api
+
