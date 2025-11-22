@@ -1,4 +1,5 @@
 import os
+import json
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -57,6 +58,18 @@ class QueryRequest(BaseModel):
 @app.get("/")
 def root():
     return {"message": " RAG API with Qdrant + OpenAI LLM is running"}
+
+
+@app.get("/documents")
+def get_documents():
+    manifest_file = "documents.json"
+    if os.path.exists(manifest_file):
+        try:
+            with open(manifest_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            return {"error": str(e)}
+    return []
 
 
 @app.post("/query")

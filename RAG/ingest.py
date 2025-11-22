@@ -13,6 +13,7 @@ from docling.document_converter import DocumentConverter
 # -------------------
 COLLECTION_NAME = "wiki_docs"
 DATA_FOLDER = "./wiki"  # dossier contenant les documents
+MANIFEST_FILE = "documents.json"
 QDRANT_HOST = "qdrant"
 QDRANT_PORT = 6333
 
@@ -133,11 +134,55 @@ def is_file_already_ingested(filepath):
         return False
 
 # -------------------
+# Gestion du manifest
+# -------------------
+import json
+
+def load_manifest():
+    if os.path.exists(MANIFEST_FILE):
+        try:
+            with open(MANIFEST_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_manifest(manifest):
+    with open(MANIFEST_FILE, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=4, ensure_ascii=False)
+
+def update_manifest(filepath, chunk_count):
+    manifest = load_manifest()
+    filename = os.path.basename(filepath)
+    file_date = datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat()
+    
+    # Vérifier si le fichier est déjà dans le manifest
+    for doc in manifest:
+        if doc["filename"] == filename:
+            doc["ingested_at"] = datetime.now().isoformat()
+            doc["chunk_count"] = chunk_count
+            save_manifest(manifest)
+            return
+
+    # Sinon ajouter
+    manifest.append({
+        "filename": filename,
+        "filepath": filepath,
+        "ingested_at": datetime.now().isoformat(),
+        "file_date": file_date,
+        "chunk_count": chunk_count
+    })
+    save_manifest(manifest)
+
+# -------------------
 # Ingestion d'un fichier
 # -------------------
 def ingest_file(filepath):
+    # On vérifie toujours Qdrant pour éviter les doublons vectoriels
     if is_file_already_ingested(filepath):
-        print(f"  Fichier déjà ingéré : {filepath}")
+        print(f"  Fichier déjà ingéré (Qdrant) : {filepath}")
+        # On met quand même à jour le manifest au cas où
+        update_manifest(filepath, 0) 
         return
 
     # Extraire le texte avec Docling
@@ -175,6 +220,7 @@ def ingest_file(filepath):
 
     client.upsert(collection_name=COLLECTION_NAME, points=points)
     print(f"  Fichier ingéré : {filepath} ({len(chunks)} chunks)")
+    update_manifest(filepath, len(chunks))
 
 
 # -------------------
