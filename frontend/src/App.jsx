@@ -140,7 +140,7 @@ function App() {
             {messages.map((msg, index) => (
               <div
                 key={index}
-                className={`chat-message ${msg.role} w-full border-b border-black/10 dark:border-gray-900/50 text-gray-800 dark:text-gray-100`}
+                className={`chat-message ${msg.role} w-full border-b border-black/10 dark:border-gray-900/50 dark:text-gray-100`}
               >
                 <div className="max-w-3xl mx-auto gap-4 md:gap-6 flex p-4 md:py-6">
                   <div className="flex-shrink-0 flex flex-col relative items-end">
