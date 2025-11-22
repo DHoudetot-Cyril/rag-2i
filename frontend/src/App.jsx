@@ -24,9 +24,8 @@ function App() {
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        // Dynamically determine API URL based on where the frontend is loaded from
-        const apiBaseUrl = `http://${window.location.hostname}:8000`;
-        const response = await axios.get(`${apiBaseUrl}/documents`);
+        // Use relative path, Vite proxy will handle the rest
+        const response = await axios.get('/documents');
         setDocuments(response.data);
       } catch (error) {
         console.error("Error fetching documents:", error);
@@ -45,8 +44,7 @@ function App() {
     setIsLoading(true);
 
     try {
-      const apiBaseUrl = `http://${window.location.hostname}:8000`;
-      const response = await axios.post(`${apiBaseUrl}/query`, {
+      const response = await axios.post('/query', {
         question: userMessage.content,
         min_score: 0.01
       });
