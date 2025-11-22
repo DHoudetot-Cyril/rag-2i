@@ -44,17 +44,6 @@ services:
       - LLAMA_SERVER=http://llama:8080/completion
       - LLM_MODEL_NAME=FastLlama-3.2-1B-Instruct
   
-  bot_teams:
-    build:
-      context: ./Bot_Teams
-    container_name: Bot_Teams
-    restart: unless-stopped
-    depends_on:
-      - rag_api
-    ports:
-      - "3978:3978"
-    env_file:
-      - ./Bot_Teams/config.env
 
   frontend:
     build:
