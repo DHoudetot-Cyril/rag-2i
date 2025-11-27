@@ -28,7 +28,7 @@ SUPPORTED_EXTENSIONS = {
 converter = DocumentConverter()
 
 # Embedding model (e5-large-v2, 1024 dimensions, haute qualité)
-embedding_model = SentenceTransformer("intfloat/e5-large-v2")
+embedding_model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
 
 # Init Qdrant client
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
