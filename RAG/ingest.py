@@ -113,8 +113,9 @@ def process_file(filepath):
         file_name = os.path.basename(filepath)
         
         for i, (chunk, vector) in enumerate(zip(chunks_list, embeddings)):
-            # Extract distinct page numbers from Docling provenance
-            page_numbers = list(set([prov.page_no for prov in chunk.prov])) if chunk.prov else []
+            # HybridChunker doesn't provide provenance info like prov
+            # Page numbers cannot be extracted from DocChunk objects
+            page_numbers = []
             
             # Deterministic ID generation
             point_id = int(hashlib.md5(f"{filepath}_{i}".encode()).hexdigest(), 16) % (10**18)
@@ -125,7 +126,7 @@ def process_file(filepath):
                 "file_name": file_name,
                 "page_numbers": page_numbers,
                 "chunk_index": i,
-                "is_table": any("Table" in str(type(item)) for item in chunk.meta.doc_items) if hasattr(chunk.meta, 'doc_items') else False
+                "is_table": False  # HybridChunker doesn't expose doc_items metadata
             }
             
             points.append(PointStruct(id=point_id, vector=vector.tolist(), payload=payload))
