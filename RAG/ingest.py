@@ -1,4 +1,5 @@
 import os
+import json
 import hashlib
 from datetime import datetime
 from pathlib import Path
@@ -6,239 +7,157 @@ from pathlib import Path
 from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
+
 from docling.document_converter import DocumentConverter
+from docling.chunking import HybridChunker
 
 # -------------------
-# CONFIG
+# CONFIGURATION
 # -------------------
-COLLECTION_NAME = "wiki_docs"
-DATA_FOLDER = "./wiki"  # dossier contenant les documents
-MANIFEST_FILE = "documents.json"
+COLLECTION_NAME = "wiki_docs_production"
+DATA_FOLDER = "./wiki"
+MANIFEST_FILE = "manifest.json"
 QDRANT_HOST = "qdrant"
 QDRANT_PORT = 6333
+EMBEDDING_MODEL_ID = "Qwen/Qwen3-Embedding-0.6B"
+MAX_TOKENS = 512  # Align with model limit
 
-# Extensions de fichiers supportées
 SUPPORTED_EXTENSIONS = {
-    ".doc", ".docx", ".md", ".pdf", 
-    ".ppt", ".pptx", ".txt", ".xls", 
-    ".xlsx", ".msg"
+    ".doc", ".docx", ".pdf", ".md", ".txt", ".ppt", ".pptx", ".xlsx"
 }
 
-# Docling converter
-converter = DocumentConverter()
-
-# Embedding model (e5-large-v2, 1024 dimensions, haute qualité)
-embedding_model = SentenceTransformer("Qwen/Qwen3-Embedding-0.6B")
-
-# Init Qdrant client
+# -------------------
+# INITIALIZATION
+# -------------------
+# 1. Vector DB
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
+# 2. Embedding Model
+embedding_model = SentenceTransformer(EMBEDDING_MODEL_ID, trust_remote_code=True)
+
+# 3. Docling Converter & Chunker
+converter = DocumentConverter()
+# HybridChunker uses the model's tokenizer to ensure chunks fit context window physically
+chunker = HybridChunker(
+    tokenizer=embedding_model.tokenizer,
+    max_tokens=MAX_TOKENS,
+    merge_peers=True  # Merges small semantic units (e.g. titles + paragraph)
+)
+
 # -------------------
-# Créer la collection si elle n'existe pas
+# CORE FUNCTIONS
 # -------------------
 def init_collection():
     collections = [col.name for col in client.get_collections().collections]
     if COLLECTION_NAME not in collections:
         client.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=1024, distance=Distance.COSINE),
+            vectors_config=VectorParams(size=embedding_model.get_sentence_embedding_dimension(), distance=Distance.COSINE),
         )
-        print(f" Collection '{COLLECTION_NAME}' créée")
-    else:
-        print(f"Collection '{COLLECTION_NAME}' déjà existante")
-        
-# -------------------
-# Extraction de texte avec Docling
-# -------------------
-def extract_text_docling(filepath):
-    """
-    Extrait le texte du document en utilisant Docling
-    Supporte : PDF, DOCX, PPTX, XLSX, DOC, PPT, XLS, TXT, MD, MSG
-    """
-    try:
-        result = converter.convert(filepath)
-        # Récupère le contenu en Markdown
-        return result.document.export_to_markdown()
-    except Exception as e:
-        print(f"  Erreur lors de l'extraction avec Docling pour {filepath}: {e}")
-        # Fallback : lecture simple pour les fichiers texte
-        if filepath.endswith((".txt", ".md")):
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    return f.read()
-            except Exception as e2:
-                print(f"  Erreur fallback : {e2}")
-        return None
-
-# -------------------
-# Chunking intelligent basé sur Docling
-# -------------------
-def chunk_text_docling(text, max_length=500):
-    """
-    Découpe le texte de manière intelligente en respectant les sections
-    et les paragraphes (extraction de Docling)
-    """
-    if not text:
-        return []
-    
-    # Découper par sections (tirets de niveau 1, 2, 3)
-    chunks = []
-    current_chunk = ""
-    lines = text.split("\n")
-    
-    for line in lines:
-        # Si on rencontre un titre et que le chunk actuel est trop long
-        if line.strip().startswith("#") and len(current_chunk.split()) > max_length:
-            if current_chunk.strip():
-                chunks.append(current_chunk.strip())
-            current_chunk = line + "\n"
-        else:
-            current_chunk += line + "\n"
-    
-    # Ajouter le dernier chunk
-    if current_chunk.strip():
-        chunks.append(current_chunk.strip())
-    
-    # Si les chunks sont encore trop grands, les diviser par mots
-    final_chunks = []
-    for chunk in chunks:
-        words = chunk.split()
-        if len(words) > max_length:
-            # Découper par mots si nécessaire
-            for i in range(0, len(words), max_length):
-                final_chunks.append(" ".join(words[i:i+max_length]))
-        else:
-            final_chunks.append(chunk)
-    
-    return final_chunks
-
-# -------------------
-# Vérifier si un fichier est déjà ingéré
-# -------------------
-def is_file_already_ingested(filepath):
-    """
-    Vérifie si un fichier a déjà été ingéré dans Qdrant
-    en cherchant un point avec le même file_path dans le payload
-    """
-    try:
-        points, _ = client.scroll(
-            collection_name=COLLECTION_NAME,
-            scroll_filter=Filter(
-                must=[FieldCondition(key="file_path", match=MatchValue(value=filepath))]
-            ),
-            limit=1
-        )
-        return len(points) > 0
-    except Exception as e:
-        print(f"  Erreur lors de la vérification du fichier : {e}")
-        return False
-
-# -------------------
-# Gestion du manifest
-# -------------------
-import json
+        print(f"[Init] Collection '{COLLECTION_NAME}' created.")
 
 def load_manifest():
     if os.path.exists(MANIFEST_FILE):
-        try:
-            with open(MANIFEST_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return []
-    return []
+        with open(MANIFEST_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
 
-def save_manifest(manifest):
-    with open(MANIFEST_FILE, "w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=4, ensure_ascii=False)
-
-def update_manifest(filepath, chunk_count):
+def update_manifest(filepath, doc_hash, chunks_count):
     manifest = load_manifest()
-    filename = os.path.basename(filepath)
-    file_date = datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat()
+    manifest[filepath] = {
+        "hash": doc_hash,
+        "ingested_at": datetime.now().isoformat(),
+        "chunks_count": chunks_count
+    }
+    with open(MANIFEST_FILE, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=4)
+
+def get_file_hash(filepath):
+    hasher = hashlib.md5()
+    with open(filepath, "rb") as f:
+        buf = f.read()
+        hasher.update(buf)
+    return hasher.hexdigest()
+
+def process_file(filepath):
+    # 1. Check processing necessity via Hash
+    current_hash = get_file_hash(filepath)
+    manifest = load_manifest()
     
-    # Vérifier si le fichier est déjà dans le manifest
-    for doc in manifest:
-        if doc["filename"] == filename:
-            doc["ingested_at"] = datetime.now().isoformat()
-            doc["chunk_count"] = chunk_count
-            save_manifest(manifest)
+    if filepath in manifest and manifest[filepath]["hash"] == current_hash:
+        print(f"[Skip] {filepath} (Unchanged)")
+        return
+
+    print(f"[Processing] {filepath} ...")
+
+    try:
+        # 2. Docling Conversion
+        doc_result = converter.convert(filepath)
+        doc = doc_result.document
+        
+        # 3. Intelligent Chunking
+        chunk_iter = chunker.chunk(doc)
+        chunks_list = list(chunk_iter)
+        
+        if not chunks_list:
+            print(f"[Warn] No chunks found in {filepath}")
             return
 
-    # Sinon ajouter
-    manifest.append({
-        "filename": filename,
-        "filepath": filepath,
-        "ingested_at": datetime.now().isoformat(),
-        "file_date": file_date,
-        "chunk_count": chunk_count
-    })
-    save_manifest(manifest)
+        # 4. Vectorization (Batch)
+        texts = [chunk.text for chunk in chunks_list]
+        # Qwen-3 typically works well without "passage:" prefix, adding purely for compatibility if needed
+        embeddings = embedding_model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
 
-# -------------------
-# Ingestion d'un fichier
-# -------------------
-def ingest_file(filepath):
-    # On vérifie toujours Qdrant pour éviter les doublons vectoriels
-    if is_file_already_ingested(filepath):
-        print(f"  Fichier déjà ingéré (Qdrant) : {filepath}")
-        # On met quand même à jour le manifest au cas où
-        update_manifest(filepath, 0) 
-        return
+        # 5. Point Construction
+        points = []
+        file_name = os.path.basename(filepath)
+        
+        for i, (chunk, vector) in enumerate(zip(chunks_list, embeddings)):
+            # Extract distinct page numbers from Docling provenance
+            page_numbers = list(set([prov.page_no for prov in chunk.prov])) if chunk.prov else []
+            
+            # Deterministic ID generation
+            point_id = int(hashlib.md5(f"{filepath}_{i}".encode()).hexdigest(), 16) % (10**18)
+            
+            payload = {
+                "text": chunk.text,
+                "file_path": filepath,
+                "file_name": file_name,
+                "page_numbers": page_numbers,
+                "chunk_index": i,
+                "is_table": any("Table" in str(type(item)) for item in chunk.meta.doc_items) if hasattr(chunk.meta, 'doc_items') else False
+            }
+            
+            points.append(PointStruct(id=point_id, vector=vector.tolist(), payload=payload))
 
-    # Extraire le texte avec Docling
-    content = extract_text_docling(filepath)
-    if not content:
-        print(f"  Impossible d'extraire le contenu de {filepath}")
-        return
-
-    file_date = datetime.fromtimestamp(os.path.getmtime(filepath)).isoformat()
-    # Utiliser le chunking intelligent de Docling
-    chunks = chunk_text_docling(content)
-    
-    if not chunks:
-        print(f"  Aucun chunk généré pour {filepath}, fichier ignoré")
-        return
-    
-    # Ajouter le préfixe "passage:" pour e5-large-v2 (recommandé pour les documents)
-    chunks_with_prefix = [f"passage: {chunk}" for chunk in chunks]
-    embeddings = embedding_model.encode(chunks_with_prefix, convert_to_numpy=True)
-
-    points = []
-    for i, (chunk, vector) in enumerate(zip(chunks, embeddings)):
-        uid = int(hashlib.md5(f"{filepath}-{i}".encode()).hexdigest(), 16) % (10**18)
-        points.append(
-            PointStruct(
-                id=uid,
-                vector=vector.tolist(),
-                payload={
-                    "text": chunk,
-                    "file_path": filepath,
-                    "file_date": file_date
-                }
+        # 6. Database Upsert
+        # Delete old chunks for this file before upserting new ones to avoid ghosts
+        client.delete(
+            collection_name=COLLECTION_NAME,
+            points_selector=Filter(
+                must=[FieldCondition(key="file_path", match=MatchValue(value=filepath))]
             )
         )
+        
+        client.upsert(collection_name=COLLECTION_NAME, points=points)
+        update_manifest(filepath, current_hash, len(points))
+        print(f"[Done] {filepath} -> {len(points)} chunks.")
 
-    client.upsert(collection_name=COLLECTION_NAME, points=points)
-    print(f"  Fichier ingéré : {filepath} ({len(chunks)} chunks)")
-    update_manifest(filepath, len(chunks))
-
-
-# -------------------
-# Ingestion d'un dossier
-# -------------------
-def ingest_folder(folder_path):
-    for root, _, files in os.walk(folder_path):
-        for file in files:
-            file_ext = Path(file).suffix.lower()
-            if file_ext in SUPPORTED_EXTENSIONS:
-                ingest_file(os.path.join(root, file))
+    except Exception as e:
+        print(f"[Error] Failed to process {filepath}: {e}")
 
 # -------------------
-# MAIN
+# MAIN EXECUTION
 # -------------------
 if __name__ == "__main__":
     init_collection()
-    print(f"\nFormats supportés : {', '.join(sorted(SUPPORTED_EXTENSIONS))}")
-    print(f"Dossier source : {DATA_FOLDER}\n")
-    ingest_folder(DATA_FOLDER)
-    print("\n Ingestion terminée")
+    
+    if not os.path.exists(DATA_FOLDER):
+        print(f"Folder {DATA_FOLDER} not found.")
+        exit(1)
+
+    for root, _, files in os.walk(DATA_FOLDER):
+        for file in files:
+            file_path = os.path.join(root, file)
+            if Path(file_path).suffix.lower() in SUPPORTED_EXTENSIONS:
+                process_file(file_path)
