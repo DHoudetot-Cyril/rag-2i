@@ -45,41 +45,7 @@ Le projet utilise Docker Compose pour orchestrer plusieurs services :
    - Dépendances : rag_api
    - Configuration : Fichier `config.env`
 
-#### Flux de Communication
 
-```
-[User] 
-  ↓
-[rag_api:8000] (FastAPI)
-  ├─→ [qdrant:6333] (Recherche vectorielle)
-  └─→ [llama:8080] (Génération de texte)
-  ↓
-[Réponse RAG]
-```
-
-## Test du POC en Local
-
-Pour tester le système RAG localement, vous pouvez utiliser la commande curl suivante dans une invite de commande Windows :
-
-```bash
-curl -X POST "https://ruben-subdialectal-holoblastically.ngrok-free.dev/query" -H "Content-Type: application/json" -d "{\"question\": \"Que peux-tu me dire de l'Authentification Active Directory en Intranet\"}" -k
-```
-
-Vous pouvez également tester l'API avec Postman :
-- Méthode : POST
-- URL : `https://ruben-subdialectal-holoblastically.ngrok-free.dev/query`
-- Headers :
-	- `Content-Type: application/json`
-- Body (raw, JSON) :
-```json
-{
-	"question": "Que peux-tu me dire de l'Authentification Active Directory en Intranet"
-}
-```
-
-![Image Postman](Readme_Attachments\image.png)
-
-Cette commande envoie une requête POST à l'API avec une question exemple sur l'Authentification Active Directory.
 
 ## Structure du Projet
 
