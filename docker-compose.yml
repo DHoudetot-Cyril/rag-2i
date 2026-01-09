@@ -16,18 +16,20 @@ services:
     restart: always
     depends_on:
       - qdrant
-      - llama
     ports:
       - "8000:8000"
         
     volumes:
       - ./RAG:/app
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
       
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION=wiki_usagers
-      - LLAMA_SERVER=http://llama:8080/completion
+      - LLAMA_SERVER=http://host.docker.internal:8080/completion
       - LLM_MODEL_NAME=Qwen3-30B-A3B-Thinking-2507
   
   rag_api_direction:
@@ -37,18 +39,20 @@ services:
     restart: always
     depends_on:
       - qdrant
-      - llama
     ports:
       - "8001:8000"
       
     volumes:
       - ./RAG:/app
 
+    extra_hosts:
+          - "host.docker.internal:host-gateway"
+
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION=wiki_direction
-      - LLAMA_SERVER=http://llama:8080/completion
+      - LLAMA_SERVER=http://host.docker.internal:8080/completion
       - LLM_MODEL_NAME=Qwen3-30B-A3B-Thinking-2507
 
   frontend_usagers:
@@ -74,25 +78,3 @@ services:
       - rag_api_direction
     environment:
       - API_TARGET=http://rag_api_direction:8000
-
-  llama:
-    image: ghcr.io/ggerganov/llama.cpp:server-cuda
-    container_name: llama
-    ports:
-      - "8081:8080"
-    volumes:
-      - ./models:/models
-    command:
-          - --model
-          - /models/Qwen3-30B-A3B-Thinking-2507-Q4_K_M.gguf
-          - --n-gpu-layers
-          - "99"
-          - --threads
-          - "8"
-          - --ctx-size
-          - "4096"
-          - --host
-          - 0.0.0.0
-          - --port
-          - "8080"
-    restart: unless-stopped
