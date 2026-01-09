@@ -12,8 +12,8 @@ from openai import OpenAI
 # ---------------------------
 QDRANT_HOST = "qdrant"
 QDRANT_PORT = 6333
-COLLECTION_NAME = "wiki_docs"
-EMBEDDING_MODEL = "Qwen/Qwen3-Embedding-0.6B"
+COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "wiki_docs")
+EMBEDDING_MODEL = "jinaai/jina-embeddings-v3"
 
 # Config du LLM (compatible OpenAI API)
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://llama:8080/v1")
@@ -29,7 +29,7 @@ print("Connexion à Qdrant...")
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 print("Chargement du modèle d'embedding...")
-model = SentenceTransformer(EMBEDDING_MODEL)
+model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
 
 print("Initialisation du client OpenAI compatible...")
 llm_client = OpenAI(
@@ -62,7 +62,13 @@ def root():
 
 @app.get("/documents")
 def get_documents():
-    manifest_file = "documents.json"
+    if COLLECTION_NAME == "wiki_usagers":
+        manifest_file = "documents_level1.json"
+    elif COLLECTION_NAME == "wiki_direction":
+        manifest_file = "documents_level2.json"
+    else:
+        manifest_file = "documents.json"
+
     if os.path.exists(manifest_file):
         try:
             with open(manifest_file, "r", encoding="utf-8") as f:

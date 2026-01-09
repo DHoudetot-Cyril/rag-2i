@@ -8,11 +8,11 @@ export default defineConfig({
     host: true, // Needed for Docker
     proxy: {
       '/query': {
-        target: 'http://rag_api:8000',
+        target: process.env.API_TARGET || 'http://rag_api:8000',
         changeOrigin: true,
       },
       '/documents': {
-        target: 'http://rag_api:8000',
+        target: process.env.API_TARGET || 'http://rag_api:8000',
         changeOrigin: true,
       }
     }

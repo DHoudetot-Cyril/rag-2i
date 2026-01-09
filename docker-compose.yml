@@ -8,50 +8,91 @@ services:
     volumes:
       - ./qdrant_data:/qdrant/storage
 
-  llama:
-    image: ghcr.io/ggerganov/llama.cpp:server
-    container_name: llama
-    ports:
-      - "8081:8080"
-    volumes:
-      - ./models:/models
-    command:
-      - --model
-      - /models/FastLlama-3.2-1B-Instruct-Q4_K_M.gguf
-      - --threads
-      - "16"
-      - --ctx-size
-      - "4096"
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-    restart: unless-stopped
 
-  rag_api:
+  rag_api_usagers:
     build:
       context: ./RAG
-    container_name: rag_api
+    container_name: rag_api_usagers
     restart: always
     depends_on:
       - qdrant
       - llama
     ports:
       - "8000:8000"
+        
+    volumes:
+      - ./RAG:/app
+      
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=wiki_usagers
       - LLAMA_SERVER=http://llama:8080/completion
-      - LLM_MODEL_NAME=FastLlama-3.2-1B-Instruct
+      - LLM_MODEL_NAME=Qwen3-30B-A3B-Thinking-2507
   
+  rag_api_direction:
+    build:
+      context: ./RAG
+    container_name: rag_api_direction
+    restart: always
+    depends_on:
+      - qdrant
+      - llama
+    ports:
+      - "8001:8000"
+      
+    volumes:
+      - ./RAG:/app
 
-  frontend:
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - QDRANT_COLLECTION=wiki_direction
+      - LLAMA_SERVER=http://llama:8080/completion
+      - LLM_MODEL_NAME=Qwen3-30B-A3B-Thinking-2507
+
+  frontend_usagers:
     build:
       context: ./frontend
-    container_name: frontend
+    container_name: frontend_usagers
     restart: always
     ports:
       - "5173:5173"
     depends_on:
-      - rag_api
+      - rag_api_usagers
+    environment:
+      - API_TARGET=http://rag_api_usagers:8000
 
+  frontend_direction:
+    build:
+      context: ./frontend
+    container_name: frontend_direction
+    restart: always
+    ports:
+      - "5174:5173"
+    depends_on:
+      - rag_api_direction
+    environment:
+      - API_TARGET=http://rag_api_direction:8000
+
+  llama:
+    image: ghcr.io/ggerganov/llama.cpp:server-cuda
+    container_name: llama
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./models:/models
+    command:
+          - --model
+          - /models/Qwen3-30B-A3B-Thinking-2507-Q4_K_M.gguf
+          - --n-gpu-layers
+          - "99"
+          - --threads
+          - "8"
+          - --ctx-size
+          - "4096"
+          - --host
+          - 0.0.0.0
+          - --port
+          - "8080"
+    restart: unless-stopped

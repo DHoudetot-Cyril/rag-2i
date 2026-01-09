@@ -53,8 +53,9 @@ function App() {
 
       const botMessage = {
         role: 'assistant',
-        content: data.answer || "Désolé, je n'ai pas pu générer de réponse.",
-        files: data.files_used || []
+        content: data.error ? `Erreur du serveur : ${data.error}` : (data.answer || "Désolé, je n'ai pas pu générer de réponse."),
+        files: data.files_used || [],
+        isError: !!data.error
       };
 
       setMessages(prev => [...prev, botMessage]);
