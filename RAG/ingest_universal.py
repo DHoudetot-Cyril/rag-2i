@@ -228,8 +228,6 @@ if __name__ == "__main__":
 
     print(f"[Start] Scan de '{DATA_FOLDER}'...")
     
-    # Force GPU AMD pour Docling/PyTorch si dispo
-    os.environ["HSA_OVERRIDE_GFX_VERSION"] = "11.0.0"
 
     for root, _, files in os.walk(DATA_FOLDER):
         for file in files:
