@@ -2,6 +2,7 @@ import os
 import json
 import hashlib
 import subprocess
+import torch  # Ajout de torch pour verifier le GPU
 from datetime import datetime
 from pathlib import Path
 
@@ -10,9 +11,11 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
 
-# --- DOCLING ---
+# --- DOCLING & ACCELERATION ---
 from docling.document_converter import DocumentConverter
 from docling.chunking import HybridChunker
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfFormatOption, PipelineOptions, AcceleratorOptions, AcceleratorDevice
 
 # -------------------
 # CONFIGURATION
@@ -43,18 +46,42 @@ SUPPORTED_EXTENSIONS = {
 # -------------------
 # INITIALISATION
 # -------------------
+# 1. Detection du GPU
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"[Init] Peripherique d'inference detecte : {DEVICE.upper()}")
+if DEVICE == "cuda":
+    print(f"[Init] GPU : {torch.cuda.get_device_name(0)}")
+
 print("[Init] Connexion a Qdrant...")
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 print("[Init] Chargement du modele d'embedding...")
-embedding_model = SentenceTransformer(EMBEDDING_MODEL_ID, trust_remote_code=True)
+# MODIFICATION 1 : On passe explicitement le device='cuda'
+embedding_model = SentenceTransformer(
+    EMBEDDING_MODEL_ID, 
+    trust_remote_code=True, 
+    device=DEVICE 
+)
 
 # IMPORTANT : On force la taille max ici.
-# Cela remplace l'argument 'truncation=True' qui faisait planter le script.
-# SentenceTransformers coupera automatiquement ce qui depasse 8192 tokens.
 embedding_model.max_seq_length = MAX_TOKENS
 
-converter = DocumentConverter()
+# MODIFICATION 2 : Configuration de Docling pour utiliser le GPU (OCR & Layout)
+print("[Init] Configuration de Docling avec acceleration GPU...")
+accelerator_options = AcceleratorOptions(
+    num_threads=8, 
+    device=AcceleratorDevice.CUDA if DEVICE == "cuda" else AcceleratorDevice.AUTO
+)
+
+pipeline_options = PipelineOptions(accelerator_options=accelerator_options)
+
+# On applique ces options spécifiquement pour les PDF (qui sont lourds)
+converter = DocumentConverter(
+    format_options={
+        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+    }
+)
+
 chunker = HybridChunker(
     tokenizer=embedding_model.tokenizer,
     max_tokens=MAX_TOKENS,
@@ -157,6 +184,7 @@ def process_file(filepath):
 
     try:
         # 4. Conversion Docling
+        # Docling utilise maintenant les options GPU definies plus haut
         doc_result = converter.convert(actual_filepath)
         doc = doc_result.document
         
@@ -171,9 +199,6 @@ def process_file(filepath):
         # 6. Vectorisation (Embedding)
         texts = [chunk.text for chunk in chunks_list]
         
-        # --- CORRECTION FINALE ---
-        # On a retire 'truncation=True' qui causait l'erreur.
-        # On ajoute 'task="retrieval.passage"' qui est specifique a Jina V3 pour ameliorer la qualite.
         embeddings = embedding_model.encode(
             texts, 
             convert_to_numpy=True, 
