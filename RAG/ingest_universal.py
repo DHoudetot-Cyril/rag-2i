@@ -2,7 +2,7 @@ import os
 import json
 import hashlib
 import subprocess
-import torch  # Ajout de torch pour verifier le GPU
+import torch
 from datetime import datetime
 from pathlib import Path
 
@@ -11,11 +11,15 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import VectorParams, Distance, PointStruct, Filter, FieldCondition, MatchValue
 from sentence_transformers import SentenceTransformer
 
-# --- DOCLING & ACCELERATION ---
-from docling.document_converter import DocumentConverter
+# --- DOCLING V2 IMPORTS (CORRIGÉS) ---
+from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.chunking import HybridChunker
 from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfFormatOption, PipelineOptions, AcceleratorOptions, AcceleratorDevice
+from docling.datamodel.pipeline_options import (
+    PdfPipelineOptions, 
+    AcceleratorOptions, 
+    AcceleratorDevice
+)
 
 # -------------------
 # CONFIGURATION
@@ -34,7 +38,7 @@ FOLDER_MAPPING = {
 }
 
 MANIFEST_FILE = "manifest.json"
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost") # localhost par defaut
+QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost") 
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 EMBEDDING_MODEL_ID = "jinaai/jina-embeddings-v3"
 MAX_TOKENS = 8192
@@ -56,26 +60,26 @@ print("[Init] Connexion a Qdrant...")
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
 print("[Init] Chargement du modele d'embedding...")
-# MODIFICATION 1 : On passe explicitement le device='cuda'
+# On charge le modele sur le GPU
 embedding_model = SentenceTransformer(
     EMBEDDING_MODEL_ID, 
     trust_remote_code=True, 
     device=DEVICE 
 )
-
-# IMPORTANT : On force la taille max ici.
 embedding_model.max_seq_length = MAX_TOKENS
 
-# MODIFICATION 2 : Configuration de Docling pour utiliser le GPU (OCR & Layout)
-print("[Init] Configuration de Docling avec acceleration GPU...")
+# 2. Configuration Docling pour GPU
+print("[Init] Configuration de Docling (OCR & Layout)...")
 accelerator_options = AcceleratorOptions(
     num_threads=8, 
     device=AcceleratorDevice.CUDA if DEVICE == "cuda" else AcceleratorDevice.AUTO
 )
 
-pipeline_options = PipelineOptions(accelerator_options=accelerator_options)
+# Utilisation de PdfPipelineOptions pour les PDF
+pipeline_options = PdfPipelineOptions(accelerator_options=accelerator_options)
+pipeline_options.do_ocr = True
+pipeline_options.do_table_structure = True
 
-# On applique ces options spécifiquement pour les PDF (qui sont lourds)
 converter = DocumentConverter(
     format_options={
         InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
