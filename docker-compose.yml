@@ -8,7 +8,6 @@ services:
     volumes:
       - ./qdrant_data:/qdrant/storage
 
-
   rag_api_usagers:
     build:
       context: ./RAG
@@ -18,20 +17,25 @@ services:
       - qdrant
     ports:
       - "8000:8000"
-        
     volumes:
       - ./RAG:/app
-
     extra_hosts:
       - "host.docker.internal:host-gateway"
-      
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION=wiki_usagers
       - LLAMA_SERVER=http://host.docker.internal:8080/completion
       - LLM_MODEL_NAME=Qwen3-30B-A3B-Thinking-2507
-  
+    # --- AJOUT CRITIQUE POUR GPU ---
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
   rag_api_direction:
     build:
       context: ./RAG
@@ -41,19 +45,24 @@ services:
       - qdrant
     ports:
       - "8001:8000"
-      
     volumes:
       - ./RAG:/app
-
     extra_hosts:
           - "host.docker.internal:host-gateway"
-
     environment:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION=wiki_direction
       - LLAMA_SERVER=http://host.docker.internal:8080/completion
       - LLM_MODEL_NAME=Qwen3-30B-A3B-Thinking-2507
+    # --- AJOUT CRITIQUE POUR GPU ---
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
   frontend_usagers:
     build:
