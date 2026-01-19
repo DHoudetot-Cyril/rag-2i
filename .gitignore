@@ -1,6 +1,3 @@
 qdrant_data/*
 models/*
 RAG/wiki/*
-
-
-venv/

@@ -1,60 +1,54 @@
-# RAG (Retrieval-Augmented Generation) Project
+# RAG-2i : Assistant Documentaire Intelligent
 
-Ce projet implémente un système RAG (Retrieval-Augmented Generation) qui permet d'interroger intelligemment une base de connaissances documentaire. Le système utilise des techniques avancées de traitement du langage naturel pour fournir des réponses précises et contextuelles aux questions des utilisateurs.
+**RAG-2i** est un système de **Retrieval-Augmented Generation (RAG)** conçu pour interroger une base de connaissances documentaire interne en toute confidentialité. Il combine la puissance des LLMs locaux avec une base de données vectorielle pour fournir des réponses factuelles et sourcées.
 
-## Architecture
+## 🚀 Fonctionnalités
+- **Chat en langage naturel** : Posez vos questions en français.
+- **Sources citées** : Chaque réponse indique précisément les documents utilisés.
+- **Architecture Locale** : Vos données ne sortent pas de votre infrastructure (sauf si configuré autrement).
+- **Multi-formats** : Support des fichiers PDF, DOCX, PPTX.
 
-Le projet est composé de deux composants principaux :
-- Un système d'ingestion de documents (`ingest.py`)
-- Une API de requête RAG (`rag.py`)
+## 🛠 Stack Technique
+- **Frontend** : React + Vite
+- **Backend API** : FastAPI (Python)
+- **Base Vectorielle** : Qdrant (Docker)
+- **Ingestion (OCR/Parsing)** : Docling + SentenceTransformers (GPU recommandé)
+- **LLM** : Llama.cpp (Qwen 30B - ou autre modèle GGUF)
 
-### Architecture Docker
+## 📋 Prérequis Rapides
+- **GPU NVIDIA** (Recommandé avec `nvidia-container-toolkit`)
+- **RAM** : 24 Go minimum
+- **Docker & Docker Compose**
+- **Python 3.10+**
 
-Le projet utilise Docker Compose pour orchestrer plusieurs services :
+## ⚡ Quick Start
 
-#### Services Docker
+Pour une installation détaillée, voir le [Manuel d'Utilisation](./MANUEL_UTILISATION.md).
 
-1. **qdrant** (Base de données vectorielle)
-   - Image : `qdrant/qdrant:latest`
-   - Port : 6333
-   - Rôle : Stockage et recherche des embeddings vectoriels
-   - Volume : `./qdrant_data` pour la persistance des données
+1. **Préparer les données** :
+   Placez vos documents dans le dossier `wiki/` (ex: `wiki/niveau1-usagers/`).
 
-2. **llama** (Serveur LLM)
-   - Image : `ghcr.io/ggerganov/llama.cpp:server`
-   - Port : 8080
-   - Rôle : Service de génération de texte utilisant le modèle Qwen3-30B
-   - Configuration : 16 threads, contexte de 4096 tokens
-   - Volume : `./models/BF16` contenant le modèle GGUF Qwen3-30B-A3B-Thinking-2507-GGUF
+2. **Lancer le LLM** :
+   ```bash
+   ./bin/llama-server --model <votre_modele.gguf> --port 8080 ...
+   ```
 
-3. **rag_api** (API RAG principale)
-   - Basée sur : `Python 3.12-slim`
-   - Port : 8000
-   - Rôle : API REST pour les requêtes RAG
-   - Framework : Uvicorn/FastAPI
-   - Dépendances : qdrant et llama
-   - Variables d'environnement :
-     - `QDRANT_HOST=qdrant`
-     - `QDRANT_PORT=6333`
-     - `LLAMA_SERVER=http://llama:8080/completion`
+3. **Démarrer l'infrastructure** :
+   ```bash
+   docker-compose up -d
+   ```
 
-4. **bot_teams** (Bot Microsoft Teams)
-   - Basée sur : `Python 3.12-slim`
-   - Port : 3978
-   - Rôle : Interface de chatbot Teams
-   - Dépendances : rag_api
-   - Configuration : Fichier `config.env`
+4. **Ingérer les documents** :
+   ```bash
+   sudo docker exec -it rag_api_usagers python ingest_with_nvidia.py
+   ```
 
+5. **Accéder à l'interface** :
+   Rendez-vous sur `http://localhost:5173`.
 
+## 📚 Documentation
+- [Manuel d'Utilisation](./MANUEL_UTILISATION.md) : Guide complet d'installation et de dépannage.
+- [API Docs](http://localhost:8000/docs) : Documentation Swagger de l'API.
 
-## Structure du Projet
-
-```
-RAG/
-├── config.env       # Configuration du projet
-├── Dockerfile       # Configuration Docker
-├── ingest.py        # Script d'ingestion des documents
-├── rag.md           # Documentation détaillée
-├── rag.py           # API principale
-└── requirements.txt # Dépendances Python
-```
+## 👤 Auteur
+Projet développé pour RAG-2i.
