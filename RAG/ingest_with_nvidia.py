@@ -37,7 +37,7 @@ MANIFEST_FILE = "manifest.json"
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost") 
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 EMBEDDING_MODEL_ID = "intfloat/multilingual-e5-large"
-MAX_TOKENS = 8192
+MAX_TOKENS = 512
 
 SUPPORTED_EXTENSIONS = {
     ".doc", ".docx", ".pdf", ".md", ".txt", ".ppt", ".pptx", ".xlsx"
