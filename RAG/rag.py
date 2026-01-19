@@ -13,7 +13,7 @@ from openai import OpenAI
 QDRANT_HOST = "qdrant"
 QDRANT_PORT = 6333
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "wiki_docs")
-EMBEDDING_MODEL = "jinaai/jina-embeddings-v3"
+EMBEDDING_MODEL = "intfloat/multilingual-e5-large"
 
 # Config du LLM (compatible OpenAI API)
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://llama:8080/v1")

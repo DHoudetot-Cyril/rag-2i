@@ -36,7 +36,7 @@ FOLDER_MAPPING = {
 MANIFEST_FILE = "manifest.json"
 QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost") 
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
-EMBEDDING_MODEL_ID = "jinaai/jina-embeddings-v3"
+EMBEDDING_MODEL_ID = "intfloat/multilingual-e5-large"
 MAX_TOKENS = 8192
 
 SUPPORTED_EXTENSIONS = {
