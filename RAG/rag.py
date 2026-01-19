@@ -62,17 +62,22 @@ def root():
 
 @app.get("/documents")
 def get_documents():
-    if COLLECTION_NAME == "wiki_usagers":
-        manifest_file = "documents_level1.json"
-    elif COLLECTION_NAME == "wiki_direction":
-        manifest_file = "documents_level2.json"
-    else:
-        manifest_file = "documents.json"
+    manifest_file = "manifest.json"
 
     if os.path.exists(manifest_file):
         try:
             with open(manifest_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                manifest = json.load(f)
+            
+            # Transformation du dict en liste pour le frontend
+            documents = []
+            for file_path, data in manifest.items():
+                doc = data.copy()
+                doc["file_path"] = file_path
+                doc["file_name"] = os.path.basename(file_path)
+                documents.append(doc)
+                
+            return documents
         except Exception as e:
             return {"error": str(e)}
     return []
