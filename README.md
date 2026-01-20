@@ -5,7 +5,9 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/license/DHoudetot-Cyril/rag-2i?style=flat-square" alt="License">
+  <a href="http://creativecommons.org/licenses/by-sa/4.0/">
+  <img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey.svg?style=flat-square" alt="License: CC BY-SA 4.0">
+</a>
   <img src="https://img.shields.io/github/v/release/DHoudetot-Cyril/rag-2i?style=flat-square" alt="Version">
   <img src="https://img.shields.io/github/stars/DHoudetot-Cyril/rag-2i?style=flat-square" alt="Stars">
   <img src="https://img.shields.io/github/issues/DHoudetot-Cyril/rag-2i?style=flat-square" alt="Issues">
