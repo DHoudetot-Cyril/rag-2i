@@ -5,4 +5,3 @@ FastAPI==0.119.1
 uvicorn==0.38.0
 openai>=1.30.0
 docling>=1.0.0
-einops

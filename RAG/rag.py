@@ -118,34 +118,23 @@ def query_rag(req: QueryRequest):
     ]
 
     # 5️ Préparation du prompt
-    prompt_system = (
-        "Tu es un expert en analyse documentaire et assistant factuel. "
-        "Ton rôle est d'extraire des informations précises à partir du contexte fourni. "
-        "Règles impératives :\n"
-        "1. Utilise UNIQUEMENT le contexte fourni pour répondre.\n"
-        "2. Si la réponse n'est pas présente dans le contexte, réponds exactement : "
-        "'Désolé, je ne trouve pas d'information pertinente dans les documents disponibles.'\n"
-        "3. Ne fais aucune supposition et n'utilise pas de connaissances externes.\n"
-        "4. Ta réponse doit être concise, structurée et ne jamais dépasser 10 lignes.\n"
-        "5. Réponds exclusivement en français."
-    )
+    prompt = f"""Tu es un assistant qui répond à des questions à partir des documents suivants. 
+Si tu ne sais pas, n'invente pas. Limite-toi à 10 lignes.
 
-    prompt_user = f"""Voici le contexte documentaire sur lequel tu dois t'appuyer :
-### CONTEXTE ###
+Contexte :
 {context}
-#################
 
-QUESTION : {req.question}
-
-RÉPONSE (Factuelle et concise) :"""
+Question : {req.question}
+Réponse :
+"""
 
     # 6️ Appel au modèle OpenAI-compatible
     try:
         completion = llm_client.chat.completions.create(
             model=LLM_MODEL_NAME,
             messages=[
-                {"role": "system", "content": prompt_system},
-                {"role": "user", "content": prompt_user}
+                {"role": "system", "content": "Tu es un assistant utile et factuel, tu réponds uniquement en français."},
+                {"role": "user", "content": prompt}
             ],
             temperature=0.2,
             max_tokens=1024
@@ -161,4 +150,3 @@ RÉPONSE (Factuelle et concise) :"""
         "answer": answer,
         "files_used": files_used
     }
-
