@@ -8,6 +8,27 @@ services:
     volumes:
       - ./qdrant_data:/qdrant/storage
 
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm
+    restart: always
+    runtime: nvidia
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./models:/models
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ipc: host
+    command: --model /models/Qwen3-30B-A3B-Thinking-2507-AWQ --gpu-memory-utilization 0.95 --max-model-len 8192
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
   rag_api_usagers:
     build:
       context: ./RAG
@@ -15,6 +36,7 @@ services:
     restart: always
     depends_on:
       - qdrant
+      - vllm
     ports:
       - "8000:8000"
     volumes:
@@ -25,8 +47,8 @@ services:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION=wiki_usagers
-      - LLM_BASE_URL=http://host.docker.internal:8080/v1
-      - LLM_MODEL_NAME=Qwen3-30B-A3B-Thinking-2507
+      - LLM_BASE_URL=http://vllm:8000/v1
+      - LLM_MODEL_NAME=Qwen/Qwen3-30B-A3B-Thinking-2507-AWQ
     # --- AJOUT CRITIQUE POUR GPU ---
     deploy:
       resources:
@@ -43,6 +65,7 @@ services:
     restart: always
     depends_on:
       - qdrant
+      - vllm
     ports:
       - "8001:8000"
     volumes:
@@ -53,8 +76,8 @@ services:
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION=wiki_direction
-      - LLM_BASE_URL=http://host.docker.internal:8080/v1
-      - LLM_MODEL_NAME=Qwen3-30B-A3B-Thinking-2507
+      - LLM_BASE_URL=http://vllm:8000/v1
+      - LLM_MODEL_NAME=Qwen/Qwen3-30B-A3B-Thinking-2507-AWQ
     # --- AJOUT CRITIQUE POUR GPU ---
     deploy:
       resources:
