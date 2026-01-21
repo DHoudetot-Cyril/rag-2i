@@ -1,5 +1,6 @@
 import os
 import json
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -22,29 +23,52 @@ LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "qwen:latest")
 
 TOP_K = 1
 
-# ---------------------------
-# Init
-# ---------------------------
-print("Connexion à Qdrant...")
-client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+# Globals for lifespan
+client = None
+model = None
+llm_client = None
 
-print("Chargement du modèle d'embedding...")
-model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True)
+# ---------------------------
+# Lifespan (Startup/Shutdown)
+# ---------------------------
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global client, model, llm_client
+    
+    print("Startup: Initialisation des clients et modèles...")
+    
+    # 1. Qdrant
+    print(f"Connexion à Qdrant ({QDRANT_HOST}:{QDRANT_PORT})...")
+    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 
-print("Initialisation du client OpenAI compatible...")
-llm_client = OpenAI(
-    api_key=LLM_API_KEY,
-    base_url=LLM_BASE_URL
-)
+    # 2. Embedding Model - FORCE CPU pour éviter les OOM/conflits GPU
+    print(f"Chargement du modèle d'embedding {EMBEDDING_MODEL} (sur CPU)...")
+    model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True, device="cpu")
+
+    # 3. LLM Client
+    print("Initialisation du client OpenAI compatible...")
+    llm_client = OpenAI(
+        api_key=LLM_API_KEY,
+        base_url=LLM_BASE_URL
+    )
+    
+    print("Startup: Terminé. Serveur prêt à recevoir des requêtes.")
+    yield
+    print("Shutdown: Nettoyage des ressources...")
+    # Clean up if needed
 
 # ---------------------------
 # API
 # ---------------------------
-app = FastAPI(title="RAG API with Qdrant + OpenAI-Compatible LLM", version="1.1.0")
+app = FastAPI(
+    title="RAG API with Qdrant + OpenAI-Compatible LLM", 
+    version="1.1.0",
+    lifespan=lifespan
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for dev, or specify ["http://localhost:5173"]
+    allow_origins=["*"],  # Allow all origins for dev
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,7 +81,7 @@ class QueryRequest(BaseModel):
 
 @app.get("/")
 def root():
-    return {"message": " RAG API with Qdrant + OpenAI LLM is running"}
+    return {"message": "RAG API with Qdrant + OpenAI LLM is running"}
 
 
 @app.get("/documents")
@@ -85,6 +109,11 @@ def get_documents():
 
 @app.post("/query")
 def query_rag(req: QueryRequest):
+    global model, client, llm_client
+
+    if not model or not client or not llm_client:
+        return {"error": "Server is still starting up, please try again in a few seconds."}
+
     # 1️ Embedding de la question
     query_vector = model.encode(f"query: {req.question}").tolist()
 
