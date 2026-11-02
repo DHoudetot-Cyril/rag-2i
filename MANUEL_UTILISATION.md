@@ -1,4 +1,4 @@
-# Manuel d'Utilisation - RAG-2i
+# Manuel d'utilisation — RAG-2i (projet de fin d'études)
 
 ## 1. Introduction
 
@@ -48,7 +48,7 @@ Le modèle de langage doit tourner en tâche de fond. Lancez `llama-server` avec
 
 ```bash
 ./bin/llama-server \
-  --model /home/pfeiris/Bureau/rag-2i/models/Qwen3-30B-A3B-Thinking-2507-Q4_K_M.gguf \
+  --model ./models/Qwen3-30B-A3B-Thinking-2507-Q4_K_M.gguf \
   --n-gpu-layers 99 \
   --ctx-size 8192 \
   --host 0.0.0.0 \
@@ -73,7 +73,7 @@ sudo docker exec -it rag_api_usagers python ingest_with_nvidia.py
 Une fois le script d'ingestion terminé (message "Done" ou invite de commande revenue), l'API est automatiquement à jour car elle lit le `manifest.json` fraîchement créé.
 
 Vous pouvez accéder à l'interface web (généralement sur `http://localhost:5173`).
-> **Note** : L'URL de l'API utilisée par le frontend est à configurer dans le fichier [frontend/vite.config.js](file:///c:/Users/cyrd6/OneDrive/Documents/rag-2i/frontend/vite.config.js) (section `proxy`).
+> **Note** : L'URL de l'API utilisée par le frontend est à configurer dans le fichier [frontend/vite.config.js](frontend/vite.config.js) (section `proxy`).
 
 ---
 
@@ -96,7 +96,7 @@ L'interface web est votre point d'entrée principal.
 **R:** Vérifiez que le script d'ingestion (Étape 3) s'est bien terminé et a créé le fichier `manifest.json`. L'API lit ce fichier pour lister les documents. Relancez la commande `docker exec` si vous avez ajouté de nouveaux fichiers.
 
 ### Q: J'ai une erreur de "Tensor size mismatch" ou de "Token limit".
-**R:** Le modèle d'embedding utilisé (`e5-large`) est limité à 512 tokens. Le script est configuré pour respecter cette limite. Assurez-vous d'avoir la dernière version de [ingest_with_nvidia.py](file:///c:/Users/cyrd6/OneDrive/Documents/rag-2i/RAG/ingest_with_nvidia.py).
+**R:** Le modèle d'embedding utilisé (`e5-large`) est limité à 512 tokens. Le script est configuré pour respecter cette limite. Assurez-vous d'avoir la dernière version de [ingest_with_nvidia.py](RAG/ingest_with_nvidia.py).
 
 ### Q: Le système répond "Désolé, je ne trouve pas d'information pertinente".
 **R:** Cela signifie que la réponse n'est pas explicitement dans vos documents. Le système a pour consigne stricte de ne pas inventer.
