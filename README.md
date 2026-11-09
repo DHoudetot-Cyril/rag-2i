@@ -1,106 +1,112 @@
-<h1 align="center">RAG-2i+ : Assistant Documentaire Intelligent </h1>
+<h1 align="center">📚 RAG-2i</h1>
 
 <p align="center">
-  <strong>RAG-2i+ est un système de Retrieval-Augmented Generation (RAG) conçu pour interroger une base de connaissances documentaire interne en toute confidentialité. Il combine la puissance des LLMs locaux avec une base de données vectorielle pour fournir des réponses factuelles et sourcées.</strong>
+  <strong>Assistant documentaire 100 % local pour interroger une base de documents internes en langage naturel,<br/>
+  avec des réponses sourcées et deux espaces séparés : usagers et direction.</strong>
 </p>
 
 <p align="center">
-  <a href="http://creativecommons.org/licenses/by-sa/4.0/">
-  <img src="https://img.shields.io/badge/License-CC_BY--SA_4.0-lightgrey.svg?style=flat-square" alt="License: CC BY-SA 4.0">
-</a>
-  <img src="https://img.shields.io/github/v/release/DHoudetot-Cyril/rag-2i?style=flat-square" alt="Version">
-  <img src="https://img.shields.io/github/stars/DHoudetot-Cyril/rag-2i?style=flat-square" alt="Stars">
-  <img src="https://img.shields.io/github/issues/DHoudetot-Cyril/rag-2i?style=flat-square" alt="Issues">
+  <img src="https://img.shields.io/github/v/release/DHoudetot-Cyril/rag-2i?label=version" alt="Version">
+  <img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Qdrant-DC244C?logo=qdrant&logoColor=white" alt="Qdrant">
+  <img src="https://img.shields.io/badge/Docling-parsing-6E40C9" alt="Docling">
+  <img src="https://img.shields.io/badge/React-Vite-61DAFB?logo=react&logoColor=black" alt="React + Vite">
+  <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/licence-CC_BY--SA_4.0-lightgrey" alt="Licence CC BY-SA 4.0">
+  <img src="https://img.shields.io/badge/projet-de_fin_d'études-8A2BE2" alt="Projet de fin d'études">
 </p>
 
 ---
 
-## 📖 Sommaire
-<p align="center">
-  <a href="#-fonctionnalités">🚀 Fonctionnalités</a> •
-  <a href="#-stack-technique">🛠 Stack Technique</a> •
-  <a href="#-prérequis-rapides">📋 Prérequis</a> •
-  <a href="#-quick-start">⚡ Quick Start</a> •
-  <a href="#-documentation">📚 Docs</a> •
-  <a href="#-contribution">🤝 Contribution</a>
-</p>
+**Projet de fin d'études** réalisé en binôme à l'IG2I. Les documents d'un établissement (PDF, Word, PowerPoint)
+sont lus, découpés et indexés. On pose ensuite sa question en français, et un LLM qui tourne sur la machine
+répond **uniquement à partir de ces documents**, en citant ses sources. Aucune donnée ne sort de l'infrastructure.
 
-## 🚀 Fonctionnalités
-- **Chat en langage naturel** : Posez vos questions en français.
-- **Sources citées** : Chaque réponse indique précisément les documents utilisés.
-- **Architecture Locale** : Vos données ne sortent pas de votre infrastructure (sauf si configuré autrement).
-- **Multi-formats** : Support des fichiers PDF, DOCX, PPTX.
+> 💡 La suite de ce projet, avec contrôle d'accès par clé d'API, tests et CI, est
+> [RAG École](https://github.com/DHoudetot-Cyril/RAG).
 
-## 🛠 Stack Technique
-- **Frontend** : React + Vite
-- **Backend API** : FastAPI (Python)
-- **Base Vectorielle** : Qdrant (Docker)
-- **Ingestion (OCR/Parsing)** : Docling + SentenceTransformers (GPU recommandé)
-- **LLM** : Llama.cpp (Qwen 30B - ou autre modèle GGUF)
+## ✨ Fonctionnalités
 
-## 📋 Prérequis Rapides
-- **GPU NVIDIA** (Recommandé avec `nvidia-container-toolkit`)
-- **RAM** : 24 Go minimum
-- **Docker & Docker Compose**
-- **Python 3.10+**
+- **💬 Chat en langage naturel**, en français.
+- **📎 Sources citées** : chaque réponse indique les documents utilisés et leur score de pertinence.
+- **🚫 Pas de réponse inventée** : si aucun passage n'est assez pertinent, l'assistant le dit au lieu de répondre.
+- **🔐 Deux niveaux d'accès** : une collection Qdrant, une API et une interface pour les *usagers*, et les mêmes pour la *direction*.
+- **📄 Ingestion multi-formats** : PDF, DOCX et PPTX lus avec **Docling** (structure et mise en page conservées), embeddings calculés sur GPU.
+- **♻️ Détection des modifications** : une empreinte MD5 par fichier, gardée dans un manifeste, évite de ré-indexer ce qui n'a pas changé.
+- **🏠 100 % local** : LLM Qwen3-30B (GGUF) servi par **llama.cpp**.
 
-## ⚡ Quick Start
+## 🏗️ Architecture
 
-Pour une installation détaillée, voir le [Manuel d'Utilisation](./MANUEL_UTILISATION.md).
+```mermaid
+flowchart LR
+    W["📁 wiki/<br/>niveau1-usagers · niveau2-direction"] -->|"Docling<br/>embeddings (GPU)"| Q[("Qdrant<br/>wiki_usagers · wiki_direction")]
+    FU["🧑 Front usagers :5173"] --> AU["API usagers :8000"]
+    FD["🏢 Front direction :5174"] --> AD["API direction :8001"]
+    AU --> Q
+    AD --> Q
+    AU & AD -->|"API OpenAI"| L["🧠 llama.cpp<br/>Qwen3-30B (hôte, GPU)"]
+```
 
-1. **Préparer les données** :
-   Placez vos documents dans le dossier `wiki/` (ex: `wiki/niveau1-usagers/`).
+| Brique | Technologie |
+|---|---|
+| Interface | React + Vite + Tailwind |
+| API | FastAPI (Python) |
+| Base vectorielle | Qdrant |
+| Ingestion | Docling (structure et mise en page) + HybridChunker + SentenceTransformers |
+| LLM | llama.cpp, Qwen3-30B-A3B (GGUF), ou tout serveur compatible OpenAI |
 
-2. **Lancer le LLM** :
-   ```bash
-   ./bin/llama-server --model <votre_modele.gguf> --port 8080 ...
-   ```
+## 🚀 Démarrage rapide
 
-3. **Démarrer l'infrastructure** :
-   ```bash
-   docker-compose up -d
-   ```
+### Prérequis
 
-4. **Ingérer les documents** :
-   ```bash
-   sudo docker exec -it rag_api_usagers python ingest_with_nvidia.py
-   ```
+- **Docker** et Docker Compose, avec le **NVIDIA Container Toolkit**
+- Un **GPU NVIDIA** (recommandé) et **24 Go de RAM**
+- **llama.cpp** et un modèle GGUF
 
-5. **Accéder à l'interface** :
-   Rendez-vous sur `http://localhost:5173`.
+### Lancement
 
-## 📚 Documentation
-- [Manuel d'Utilisation](./MANUEL_UTILISATION.md) : Guide complet d'installation et de dépannage.
-- [API Docs](http://localhost:8000/docs) : Documentation Swagger de l'API.
+```bash
+git clone https://github.com/DHoudetot-Cyril/rag-2i.git
+cd rag-2i
 
+# 1. Déposer les documents
+mkdir -p wiki/niveau1-usagers wiki/niveau2-direction
 
-## 🤝 Contribution
-Les contributions sont les bienvenues !
+# 2. Lancer le LLM sur la machine hôte
+./bin/llama-server --model <votre_modele.gguf> --n-gpu-layers 99 --ctx-size 8192 --host 0.0.0.0 --port 8080
 
-1. **Fork** le projet.
-2. Crée ta **feature branch** (`git checkout -b feature/AmazingFeature`).
-3. **Commit** tes changements (`git commit -m 'Add: Something amazing'`).
-4. **Push** sur ta branche (`git push origin feature/AmazingFeature`).
-5. Ouvre une **Pull Request**.
+# 3. Démarrer Qdrant, les API et les interfaces
+docker compose up -d
 
-> [!QUESTION]
-> **Besoin d'un template de PR ?** Indique les types de changements attendus et la checklist de validation.
+# 4. Indexer les documents
+docker exec -it rag_api_usagers python ingest_with_nvidia.py
+```
 
----
+| Interface | URL |
+|---|---|
+| 🧑 Usagers | http://localhost:5173 |
+| 🏢 Direction | http://localhost:5174 |
+| 📖 API (Swagger) | http://localhost:8000/docs |
 
-## 📄 Licence
-Distribué sous la licence **MIT**. Voir le fichier `LICENSE` pour plus de détails.
+👉 Installation détaillée et dépannage : [Manuel d'utilisation](./MANUEL_UTILISATION.md).
 
----
+## 📁 Structure du projet
 
-## 👤 Auteur
-Projet développé pour RAG-2i par :
-<a href="https://github.com/DHoudetot-Cyril">D'houdetot Cyril</a> et <a href="https://github.com/PhantomSKZT">Vandenberghe Léo</a>
+```text
+rag-2i/
+├── RAG/
+│   ├── rag.py                  # API FastAPI : recherche + génération
+│   ├── ingest_with_nvidia.py   # ingestion Docling + embeddings (GPU)
+│   └── Dockerfile
+├── frontend/                   # interface React (Vite + Tailwind)
+├── docker-compose.yml          # Qdrant + 2 API + 2 interfaces
+└── MANUEL_UTILISATION.md
+```
 
----
+## 👥 Auteurs
 
-<p align="center">
-Développé par des étudiants de 5ème Année dans le cadre de leur projet de fin d'études
-</p>
+Projet de fin d'études réalisé en binôme par
+**[Cyril D'Houdetot](https://github.com/DHoudetot-Cyril)** et **[Léo Vandenberghe](https://github.com/PhantomSKZT)**.
 
-
+Distribué sous licence [CC BY-SA 4.0](LICENSE.txt).
